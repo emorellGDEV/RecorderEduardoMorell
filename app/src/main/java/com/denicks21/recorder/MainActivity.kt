@@ -5,11 +5,12 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.util.Log
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -22,10 +23,12 @@ class MainActivity : AppCompatActivity() {
     lateinit var playTV: TextView
     lateinit var stopplayTV: TextView
     lateinit var statusTV: TextView
+    lateinit var pauseTV: TextView
     private var mRecorder: MediaRecorder? = null
     private var mPlayer: MediaPlayer? = null
     var mFileName: File? = null
 
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -35,6 +38,7 @@ class MainActivity : AppCompatActivity() {
         stopTV = findViewById(R.id.btnStop)
         playTV = findViewById(R.id.btnPlay)
         stopplayTV = findViewById(R.id.btnStopPlay)
+        pauseTV = findViewById(R.id.btnPause)
 
         startTV.setOnClickListener {
             startRecording()
@@ -51,21 +55,26 @@ class MainActivity : AppCompatActivity() {
         stopplayTV.setOnClickListener {
             pausePlaying()
         }
+
+        pauseTV.setOnClickListener {
+            pausePlaying()
+        }
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     private fun startRecording() {
 
         // Check permissions
         if (CheckPermissions()) {
 
             // Save file
-            mFileName = File(getExternalFilesDir("")?.absolutePath,"Record.3gp")
+            mFileName = File(getExternalFilesDir("")?.absolutePath, "Record.3gp")
 
             // If file exists then increment counter
             var n = 0
             while (mFileName!!.exists()) {
                 n++
-                mFileName = File(getExternalFilesDir("")?.absolutePath,"Record$n.3gp")
+                mFileName = File(getExternalFilesDir("")?.absolutePath, "Record$n.3gp")
             }
 
             // Initialize the class MediaRecorder
@@ -111,12 +120,14 @@ class MainActivity : AppCompatActivity() {
                 if (permissionToRecord && permissionToStore) {
 
                     // Message
-                    Toast.makeText(applicationContext, "Permission Granted", Toast.LENGTH_LONG).show()
+                    Toast.makeText(applicationContext, "Permission Granted", Toast.LENGTH_LONG)
+                        .show()
 
                 } else {
 
                     // Message
-                    Toast.makeText(applicationContext, "Permission Denied", Toast.LENGTH_LONG).show()
+                    Toast.makeText(applicationContext, "Permission Denied", Toast.LENGTH_LONG)
+                        .show()
                 }
             }
         }
@@ -134,9 +145,11 @@ class MainActivity : AppCompatActivity() {
     private fun RequestPermissions() {
 
         // Request permissions
-        ActivityCompat.requestPermissions(this,
+        ActivityCompat.requestPermissions(
+            this,
             arrayOf(permission.RECORD_AUDIO, permission.WRITE_EXTERNAL_STORAGE),
-            REQUEST_AUDIO_PERMISSION_CODE)
+            REQUEST_AUDIO_PERMISSION_CODE
+        )
     }
 
     fun playAudio() {
@@ -144,15 +157,21 @@ class MainActivity : AppCompatActivity() {
         // Use the MediaPlayer class to listen to recorded audio files
         mPlayer = MediaPlayer()
         try {
-            // Preleva la fonte del file audio
-            mPlayer!!.setDataSource(mFileName.toString())
+            val isPaused = !mPlayer!!.isPlaying && mPlayer!!.currentPosition > 1
+            if (isPaused) {
+                mPlayer!!.start()
+                statusTV.text = "Listening recording"
+            } else {
+                // Preleva la fonte del file audio
+                mPlayer!!.setDataSource(mFileName.toString())
 
-            // Fetch the source of the mPlayer
-            mPlayer!!.prepare()
+                // Fetch the source of the mPlayer
+                mPlayer!!.prepare()
 
-            // Start the mPlayer
-            mPlayer!!.start()
-            statusTV.text = "Listening recording"
+                // Start the mPlayer
+                mPlayer!!.start()
+                statusTV.text = "Listening recording"
+            }
         } catch (e: IOException) {
             Log.e("TAG", "prepare() failed")
         }
@@ -164,7 +183,8 @@ class MainActivity : AppCompatActivity() {
         if (mFileName == null) {
 
             // Message
-            Toast.makeText(getApplicationContext(), "Registration not started", Toast.LENGTH_LONG).show()
+            Toast.makeText(getApplicationContext(), "Registration not started", Toast.LENGTH_LONG)
+                .show()
 
         } else {
             mRecorder!!.stop()
@@ -183,8 +203,13 @@ class MainActivity : AppCompatActivity() {
 
     fun pausePlaying() {
 
-        // Stop playing the audio file
-        statusTV.text = "Recording stopped"
+        // Pause the mPlayer
+        mPlayer = MediaPlayer()
+        if (mPlayer!!.isPlaying) {
+            mPlayer!!.pause()
+            statusTV.text = "Recording paused"
+        }
+
     }
 
     companion object {
